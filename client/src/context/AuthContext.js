@@ -1,6 +1,7 @@
 // Authentication context for managing user state
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import API_BASE_URL from '../config/api';
 
 // Create the authentication context
 const AuthContext = createContext();
@@ -23,6 +24,7 @@ export const AuthProvider = ({ children }) => {
 
   // Set up axios defaults for authentication
   useEffect(() => {
+    axios.defaults.baseURL = API_BASE_URL;
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     } else {

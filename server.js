@@ -56,8 +56,15 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📱 API available at http://localhost:${PORT}/api`);
-});
+
+// Only start the server if not in Vercel environment
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📱 API available at http://localhost:${PORT}/api`);
+  });
+}
+
+// Export the app for Vercel
+module.exports = app;
 
