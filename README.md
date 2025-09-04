@@ -1,28 +1,28 @@
-# 🌐 Social Media Platform - MERN Stack
+# Social Media Platform - MERN Stack
 
 A comprehensive social media platform built with the MERN stack, featuring user authentication, post management, and social interactions. This project serves as an excellent learning resource for understanding full-stack web development.
 
-## 📋 Table of Contents
+## Table of Contents
 
-- [🎯 Project Overview](#-project-overview)
-- [🏗️ Architecture & Tech Stack](#️-architecture--tech-stack)
-- [🔧 Backend Fundamentals](#-backend-fundamentals)
-- [📊 Database Design](#-database-design)
-- [🛣️ API Endpoints](#️-api-endpoints)
-- [🔐 Authentication System](#-authentication-system)
-- [⚡ Installation & Setup](#-installation--setup)
-- [🚀 Running the Application](#-running-the-application)
-- [📱 Frontend Components](#-frontend-components)
-- [🔄 Data Flow & Workflow](#-data-flow--workflow)
+- [Project Overview](#project-overview)
+- [Architecture & Tech Stack](#architecture--tech-stack)
+- [Backend Fundamentals](#backend-fundamentals)
+- [Database Design](#database-design)
+- [API Endpoints](#api-endpoints)
+- [Authentication System](#authentication-system)
+- [Installation & Setup](#installation--setup)
+- [Running the Application](#running-the-application)
+- [Frontend Components](#frontend-components)
+- [Data Flow & Workflow](#data-flow--workflow)
 
 
 ---
 
-## 🎯 Project Overview
+## Project Overview
 
 This social media platform demonstrates modern web development practices using the MERN stack. It includes:
 
-### ✨ Key Features
+### Key Features
 - **User Authentication**: Secure registration and login with JWT tokens
 - **Post Management**: Create, read, update, and delete posts
 - **Social Interactions**: Like posts, add comments, follow/unfollow users
@@ -30,7 +30,7 @@ This social media platform demonstrates modern web development practices using t
 - **Real-time Updates**: Dynamic content updates without page refresh
 - **Responsive Design**: Works seamlessly on desktop and mobile devices
 
-### 🎓 Learning Objectives
+### Learning Objectives
 - Understanding RESTful API design
 - Implementing secure authentication
 - Working with NoSQL databases (MongoDB)
@@ -40,7 +40,7 @@ This social media platform demonstrates modern web development practices using t
 
 ---
 
-## 🏗️ Architecture & Tech Stack
+## Architecture & Tech Stack
 
 ### Backend Stack
 ```
@@ -53,7 +53,7 @@ This social media platform demonstrates modern web development practices using t
 
 ### Technology Breakdown
 
-#### 🔧 Backend Technologies
+#### Backend Technologies
 - **Node.js**: JavaScript runtime environment
 - **Express.js**: Web application framework
 - **MongoDB**: NoSQL document database
@@ -62,7 +62,7 @@ This social media platform demonstrates modern web development practices using t
 - **bcryptjs**: Password hashing library
 - **CORS**: Cross-Origin Resource Sharing middleware
 
-#### 🎨 Frontend Technologies
+#### Frontend Technologies
 - **React**: JavaScript library for building user interfaces
 - **React Router**: Client-side routing
 - **Axios**: HTTP client for API requests
@@ -71,7 +71,7 @@ This social media platform demonstrates modern web development practices using t
 
 ---
 
-## 🔧 Backend Fundamentals
+## Backend Fundamentals
 
 ### What is a Backend?
 The backend is the server-side part of a web application that handles:
@@ -125,11 +125,11 @@ const authenticateToken = (req, res, next) => {
 
 ---
 
-## 📊 Database Design
+## Database Design
 
 ### MongoDB Collections
 
-#### 👤 Users Collection
+#### Users Collection
 ```javascript
 {
   _id: ObjectId,
@@ -146,7 +146,7 @@ const authenticateToken = (req, res, next) => {
 }
 ```
 
-#### 📝 Posts Collection
+#### Posts Collection
 ```javascript
 {
   _id: ObjectId,
@@ -170,7 +170,7 @@ const authenticateToken = (req, res, next) => {
 
 ---
 
-## 🛣️ API Endpoints
+## API Endpoints
 
 ### Authentication Routes (`/api/auth`)
 ```
@@ -219,7 +219,7 @@ GET    /:id/following - Get users being followed
 
 ---
 
-## 🔐 Authentication System
+## Authentication System
 
 ### JWT (JSON Web Token) Flow
 
@@ -263,7 +263,7 @@ const isValid = await bcrypt.compare(password, hashedPassword);
 
 ---
 
-## ⚡ Installation & Setup
+## Installation & Setup
 
 ### Prerequisites
 - **Node.js** (v14 or higher) - [Download](https://nodejs.org/)
@@ -325,7 +325,7 @@ sudo systemctl start mongod
 
 ---
 
-## 🚀 Running the Application
+## Running the Application
 
 ### Development Mode (Recommended)
 
@@ -366,7 +366,7 @@ npm start
 
 ---
 
-## 📱 Frontend Components
+## Frontend Components
 
 ### Component Architecture
 ```
@@ -419,7 +419,7 @@ axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
 ---
 
-## 🔄 Data Flow & Workflow
+## Data Flow & Workflow
 
 ### User Registration Flow
 ```mermaid
@@ -465,7 +465,7 @@ graph TD
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Manual Testing Checklist
 
@@ -511,7 +511,7 @@ Content-Type: application/json
 ```
 
 
-## 📚 Learning Resources
+## Learning Resources
 
 ### Backend Development
 - [Express.js Documentation](https://expressjs.com/)
