@@ -361,3 +361,96 @@ body {
 .gap-3 { gap: 1.5rem; }
 
 
+/* Centered wide card like your screenshot */
+.cp-wrap {
+  max-width: 760px;           /* big like the mock */
+  margin: 32px auto;
+  padding: 0 12px;
+}
+
+.cp-card {
+  padding: 20px 24px;
+  border-radius: 12px;
+}
+
+.cp-title {
+  margin: 0 0 8px 0;
+  font-weight: 700;
+}
+
+/* Textarea & counter */
+.cp-textarea {
+  resize: vertical;
+}
+.cp-counter {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 6px;
+}
+
+/* File section */
+.cp-file-group {
+  margin-top: 16px;
+}
+.cp-file-name {
+  font-size: 13px;
+  color: #374151;
+  margin-left: 6px;
+}
+.cp-help {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 6px;
+}
+
+/* Big image preview */
+.cp-preview {
+  margin-top: 12px;
+  background: #f5f5f5;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #eee;
+}
+.cp-preview img {
+  display: block;
+  width: 100%;
+  max-height: 520px;          /* tall preview like the screenshot */
+  object-fit: contain;
+  background: #fff;
+}
+
+/* Big primary button */
+.cp-submit {
+  margin-top: 16px;
+  padding: 10px 20px;
+  font-weight: 600;
+}
+
+/* Simple alert + form classes fallback if you're not using Bootstrap */
+.alert {
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.alert-danger {
+  background: #fde2e1;
+  color: #7f1d1d;
+  border: 1px solid #f8b4b4;
+}
+.form-label { display:block; font-weight:600; margin: 10px 0 6px; }
+.form-control {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  outline: none;
+}
+.form-control:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.btn { border: none; border-radius: 10px; cursor: pointer; }
+.btn-primary { background: #2563eb; color: #fff; }
+.btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+
+

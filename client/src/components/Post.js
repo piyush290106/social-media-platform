@@ -1,128 +1,108 @@
 // Post component for displaying individual posts
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 const Post = ({ post, onUpdate }) => {
+  // Guard missing post entirely
+  if (!post) return null;
+
+  // Safeguards
+  const author = post.author || {};                    // may be {}
+  const authorName =
+    (author.firstName && author.lastName)
+      ? `${author.firstName} ${author.lastName}`
+      : author.username || 'Unknown user';
+
+  const authorId = author._id || null;                 // may be null
+
   const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(post.likes?.length || 0);
+  const [likeCount, setLikeCount] = useState(Array.isArray(post.likes) ? post.likes.length : 0);
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [comments, setComments] = useState(post.comments || []);
+  const [comments, setComments] = useState(Array.isArray(post.comments) ? post.comments : []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const { user, isAuthenticated } = useAuth();
 
-  // Check if current user liked this post
-  React.useEffect(() => {
-    if (user && post.likes) {
-      setIsLiked(post.likes.some(like => like.toString() === user._id));
+  useEffect(() => {
+    if (user && Array.isArray(post.likes)) {
+      setIsLiked(post.likes.some((l) => String(l) === String(user._id)));
     }
   }, [user, post.likes]);
 
-  // Format date
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+  const formatDate = (dateString) =>
+    new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
     });
-  };
 
-  // Handle like/unlike
   const handleLike = async () => {
     if (!isAuthenticated) {
       setError('Please login to like posts');
       return;
     }
-
     try {
       setLoading(true);
-      const response = await axios.post(`/api/posts/${post._id}/like`);
-      
-      setIsLiked(response.data.liked);
-      setLikeCount(prev => response.data.liked ? prev + 1 : prev - 1);
-    } catch (error) {
-      console.error('Error liking post:', error);
+      const { data } = await axios.post(`/api/posts/${post._id}/like`);
+      setIsLiked(data.liked);
+      setLikeCount((prev) => (data.liked ? prev + 1 : Math.max(prev - 1, 0)));
+    } catch (e) {
       setError('Failed to like post');
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle comment submission
   const handleComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim()) return;
-
     try {
       setLoading(true);
-      const response = await axios.post(`/api/posts/${post._id}/comment`, {
-        content: newComment
-      });
-      
-      setComments(response.data.post.comments);
+      const { data } = await axios.post(`/api/posts/${post._id}/comment`, { content: newComment });
+      setComments(Array.isArray(data.post?.comments) ? data.post.comments : []);
       setNewComment('');
       setError('');
-    } catch (error) {
-      console.error('Error adding comment:', error);
+    } catch (e) {
       setError('Failed to add comment');
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle post deletion
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this post?')) {
-      return;
-    }
-
+    if (!window.confirm('Are you sure you want to delete this post?')) return;
     try {
       setLoading(true);
       await axios.delete(`/api/posts/${post._id}`);
-      onUpdate(); // Refresh the posts list
-    } catch (error) {
-      console.error('Error deleting post:', error);
+      onUpdate?.();
+    } catch (e) {
       setError('Failed to delete post');
     } finally {
       setLoading(false);
     }
   };
 
+  // Only allow delete if author exists and matches current user
+  const canDelete = Boolean(isAuthenticated && user && authorId && String(user._id) === String(authorId));
+
   return (
     <div className="post">
-      {/* Error message */}
-      {error && (
-        <div className="alert alert-error mb-2">
-          {error}
-        </div>
-      )}
+      {error && <div className="alert alert-error mb-2">{error}</div>}
 
-      {/* Post header */}
       <div className="post-header">
         <div>
-          <Link 
-            to={`/user/${post.author._id}`} 
-            className="post-author"
-          >
-            {post.author.firstName && post.author.lastName 
-              ? `${post.author.firstName} ${post.author.lastName}`
-              : post.author.username
-            }
-          </Link>
-          <span className="post-date">
-            {formatDate(post.createdAt)}
-          </span>
+          {authorId ? (
+            <Link to={`/user/${authorId}`} className="post-author">{authorName}</Link>
+          ) : (
+            <span className="post-author">{authorName}</span>
+          )}
+          <span className="post-date">{formatDate(post.createdAt)}</span>
         </div>
-        
-        {/* Delete button for post author */}
-        {isAuthenticated && user && user._id === post.author._id && (
-          <button 
+
+        {canDelete && (
+          <button
             onClick={handleDelete}
             className="btn btn-danger"
             disabled={loading}
@@ -133,35 +113,29 @@ const Post = ({ post, onUpdate }) => {
         )}
       </div>
 
-      {/* Post content */}
-      <div className="post-content">
-        {post.content}
-      </div>
+      {post.content && <div className="post-content">{post.content}</div>}
 
-      {/* Post actions */}
+      {post.imageUrl && (
+        <div style={{ marginTop: 8 }}>
+          <img
+            src={post.imageUrl}
+            alt="Post"
+            style={{ width: '100%', maxHeight: 400, objectFit: 'contain', borderRadius: 8 }}
+          />
+        </div>
+      )}
+
       <div className="post-actions">
-        <button 
-          onClick={handleLike}
-          className={`post-action ${isLiked ? 'liked' : ''}`}
-          disabled={loading}
-        >
-          <span>❤️</span>
-          {likeCount} {likeCount === 1 ? 'like' : 'likes'}
+        <button onClick={handleLike} className={`post-action ${isLiked ? 'liked' : ''}`} disabled={loading}>
+          <span>❤️</span> {likeCount} {likeCount === 1 ? 'like' : 'likes'}
         </button>
-        
-        <button 
-          onClick={() => setShowComments(!showComments)}
-          className="post-action"
-        >
-          <span>💬</span>
-          {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
+        <button onClick={() => setShowComments((s) => !s)} className="post-action">
+          <span>💬</span> {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
         </button>
       </div>
 
-      {/* Comments section */}
       {showComments && (
         <div className="comments">
-          {/* Add comment form */}
           {isAuthenticated && (
             <form onSubmit={handleComment} className="mb-2">
               <div className="d-flex gap-2">
@@ -174,44 +148,35 @@ const Post = ({ post, onUpdate }) => {
                   style={{ flex: 1 }}
                   disabled={loading}
                 />
-                <button 
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={loading || !newComment.trim()}
-                >
+                <button type="submit" className="btn btn-primary" disabled={loading || !newComment.trim()}>
                   Comment
                 </button>
               </div>
             </form>
           )}
 
-          {/* Comments list */}
           {comments.length > 0 ? (
-            comments.map((comment, index) => (
-              <div key={index} className="comment">
-                <div>
-                  <Link 
-                    to={`/user/${comment.user._id}`}
-                    className="comment-author"
-                  >
-                    {comment.user.firstName && comment.user.lastName 
-                      ? `${comment.user.firstName} ${comment.user.lastName}`
-                      : comment.user.username
-                    }
-                  </Link>
-                  <div className="comment-content">
-                    {comment.content}
-                  </div>
-                  <div className="comment-date">
-                    {formatDate(comment.createdAt)}
+            comments.map((c, idx) => {
+              const cu = c.user || {};
+              const cuName =
+                (cu.firstName && cu.lastName) ? `${cu.firstName} ${cu.lastName}` : cu.username || 'Unknown user';
+              const cuId = cu._id || null;
+              return (
+                <div key={idx} className="comment">
+                  <div>
+                    {cuId ? (
+                      <Link to={`/user/${cuId}`} className="comment-author">{cuName}</Link>
+                    ) : (
+                      <span className="comment-author">{cuName}</span>
+                    )}
+                    <div className="comment-content">{c.content}</div>
+                    <div className="comment-date">{formatDate(c.createdAt)}</div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
-            <p className="text-center" style={{ color: '#666' }}>
-              No comments yet. Be the first to comment!
-            </p>
+            <p className="text-center" style={{ color: '#666' }}>No comments yet. Be the first to comment!</p>
           )}
         </div>
       )}
@@ -220,5 +185,3 @@ const Post = ({ post, onUpdate }) => {
 };
 
 export default Post;
-
-

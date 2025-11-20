@@ -1,37 +1,44 @@
-// routes/upload.routes.js
-const express = require('express');
-const multer = require('multer');
-const { authenticateToken } = require('../middleware/auth');
-const cloudinary = require('../config/cloudinary');
-
+const express = require("express");
+const multer = require("multer");
+const cloudinary = require("../config/cloudinary");
 const router = express.Router();
 
-// Use memory storage to handle uploads in memory
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
-// Upload endpoint
-router.post('/image', authenticateToken, upload.single('image'), async (req, res) => {
-  try {
-    // Validate if file exists
-    if (!req.file) {
-      return res.status(400).json({ message: 'No image provided (field "image")' });
-    }
-
-    // Convert buffer to data URI
-    const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-
-    // Upload to Cloudinary
-    const out = await cloudinary.uploader.upload(dataUri, { folder: 'social_media_posts' });
-
-    // Send response
-    res.status(201).json({ url: out.secure_url, publicId: out.public_id });
-  } catch (err) {
-    console.error('Upload error:', err);
-    res.status(err.http_code || 500).json({
-      message: err.message || 'Image upload failed',
-    });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = /^image\/(png|jpe?g|webp|gif)$/i.test(file.mimetype);
+    if (!ok) return cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "Only PNG/JPG/JPEG/WEBP/GIF allowed"));
+    cb(null, true);
   }
+});
+
+router.post("/image", upload.single("file"), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No file received" });
+
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "social_media_uploads", resource_type: "image" },
+        (err, uploaded) => (err ? reject(err) : resolve(uploaded))
+      );
+      stream.end(req.file.buffer);
+    });
+
+    res.json({ url: result.secure_url, public_id: result.public_id });
+  } catch (err) {
+    console.error("Upload error:", err);
+    next(err);
+  }
+});
+
+// Multer errors → clean messages
+router.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") return res.status(413).json({ message: "Image is larger than 10MB." });
+    return res.status(400).json({ message: err.message || "Invalid image upload." });
+  }
+  res.status(500).json({ message: "Cloud upload failed" });
 });
 
 module.exports = router;

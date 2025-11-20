@@ -1,92 +1,177 @@
-// CreatePost component for creating new posts
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-const CreatePost = () => {
-  const [content, setContent] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  
+export default function CreatePost({ onCreated }) {
   const navigate = useNavigate();
 
-  // Handle form submission
+  const [text, setText] = useState("");
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const MAX_LEN = 1000;
+  const MAX_MB = 10;
+  const API_BASE = ""; // leave blank when using CRA proxy; else "http://localhost:5000"
+  const token = localStorage.getItem("token"); // <-- required for /api/posts
+
+  const resetForm = () => {
+    setText("");
+    setFile(null);
+    setPreview("");
+    setError("");
+    setLoading(false);
+  };
+
+  const removeImage = () => {
+    setFile(null);
+    setPreview("");
+  };
+
+  const handleFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!/^image\/(png|jpe?g|webp|gif)$/i.test(f.type)) {
+      setError("Only PNG, JPG, JPEG, WEBP or GIF are allowed.");
+      return;
+    }
+    if (f.size > MAX_MB * 1024 * 1024) {
+      setError(`Image is larger than ${MAX_MB}MB.`);
+      return;
+    }
+    setError("");
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
+  const parseErr = async (res, fallback) => {
+    try {
+      const j = await res.json();
+      return j?.message || fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!file) return null;
+    const fd = new FormData();
+    fd.append("file", file);
+
+    const res = await fetch(`${API_BASE}/api/upload/image`, {
+      method: "POST",
+      // If your upload route is also protected, send the token; otherwise it’s fine to include:
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: fd
+    });
+
+    if (!res.ok) {
+      if (res.status === 413) throw new Error(`Image is larger than ${MAX_MB}MB.`);
+      throw new Error(await parseErr(res, "Image upload failed"));
+    }
+    const data = await res.json();
+    return data.url; // { url, public_id }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!content.trim()) {
-      setError('Post content is required');
+    setError("");
+
+    if (!text.trim() && !file) {
+      setError("Post content is required");
       return;
     }
 
     try {
       setLoading(true);
-      setError('');
-      
-      await axios.post('/api/posts', {
-        content: content.trim()
+      const imageUrl = file ? await uploadImage() : null;
+
+      const res = await fetch(`${API_BASE}/api/posts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ content: text.trim(), imageUrl })
       });
-      
-      // Redirect to home page after successful creation
-      navigate('/');
-    } catch (error) {
-      console.error('Error creating post:', error);
-      setError(error.response?.data?.message || 'Failed to create post');
-    } finally {
+
+      if (!res.ok) {
+        const msg = await parseErr(res, "Post failed");
+        throw new Error(msg);
+      }
+
+      const payload = await res.json();
+      const created = payload.post || payload; // handle either shape
+
+      resetForm();
+      onCreated && onCreated(created);
+      navigate("/");
+    } catch (err) {
+      setError(err.message || "Something went wrong");
       setLoading(false);
     }
   };
 
+  const handleCancel = () => {
+    resetForm();
+    navigate(-1);
+  };
+
   return (
-    <div className="container" style={{ maxWidth: '600px', margin: '2rem auto' }}>
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Create New Post</h2>
-        </div>
-        
-        {error && (
-          <div className="alert alert-error">
-            {error}
-          </div>
-        )}
+    <div className="cp-wrap">
+      <div className="card cp-card">
+        <h3 className="cp-title">Create New Post</h3>
+        <hr />
+        {error && <div className="alert alert-danger">{error}</div>}
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="content" className="form-label">
-              What's on your mind?
-            </label>
-            <textarea
-              id="content"
-              name="content"
-              className="form-textarea"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Share your thoughts..."
-              rows="4"
-              maxLength="1000"
-              disabled={loading}
-            />
-            <div className="text-right mt-1">
-              <small style={{ color: '#666' }}>
-                {content.length}/1000 characters
-              </small>
+          <label className="form-label">What’s on your mind?</label>
+          <textarea
+            className="form-control cp-textarea"
+            rows={5}
+            maxLength={MAX_LEN}
+            placeholder="Share your thoughts..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <div className="cp-counter">{`${text.length}/${MAX_LEN} characters`}</div>
+
+          <div className="cp-file-group">
+            <label className="form-label">Add an image (optional)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <input type="file" accept="image/*" onChange={handleFile} />
+              {file && (
+                <>
+                  <span className="cp-file-name">{file.name}</span>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={removeImage}
+                    style={{ background: "#ef4444", color: "#fff", padding: "6px 10px" }}
+                  >
+                    Remove image
+                  </button>
+                </>
+              )}
             </div>
+            <div className="cp-help">Allowed: PNG, JPG, JPEG, GIF, WEBP. Max {MAX_MB}MB.</div>
           </div>
 
-          <div className="d-flex gap-2">
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading || !content.trim()}
-            >
-              {loading ? 'Creating Post...' : 'Create Post'}
+          {preview && (
+            <div className="cp-preview">
+              <img src={preview} alt="preview" />
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <button className="btn btn-primary cp-submit" disabled={loading}>
+              {loading ? "Posting..." : "Post"}
             </button>
-            
             <button
               type="button"
-              onClick={() => navigate('/')}
-              className="btn btn-secondary"
-              disabled={loading}
+              className="btn"
+              onClick={handleCancel}
+              style={{ background: "#e5e7eb", color: "#111827", padding: "10px 20px", borderRadius: 10 }}
             >
               Cancel
             </button>
@@ -95,8 +180,4 @@ const CreatePost = () => {
       </div>
     </div>
   );
-};
-
-export default CreatePost;
-
-
+}

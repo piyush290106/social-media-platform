@@ -6,272 +6,210 @@ const { authenticateToken, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// @route   GET /api/posts
-// @desc    Get all posts (with pagination)
-// @access  Public
+/**
+ * GET /api/posts
+ * Get all posts (paginated)
+ * Public
+ */
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-    
-    // Get posts with author information
-    const posts = await Post.find()
-      .populate('author', 'username firstName lastName')
-      .populate('comments.user', 'username firstName lastName')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-    
-    // Get total count for pagination
-    const totalPosts = await Post.countDocuments();
-    
+    const page  = parseInt(req.query.page, 10)  || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip  = (page - 1) * limit;
+
+    const [posts, totalPosts] = await Promise.all([
+      Post.find()
+        .populate('author', 'username firstName lastName')
+        .populate('comments.user', 'username firstName lastName')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Post.countDocuments()
+    ]);
+
     res.json({
       posts,
       currentPage: page,
       totalPages: Math.ceil(totalPosts / limit),
       totalPosts
     });
-    
   } catch (error) {
     console.error('Get posts error:', error);
-    res.status(500).json({
-      message: 'Server error while fetching posts'
-    });
+    res.status(500).json({ message: 'Server error while fetching posts' });
   }
 });
 
-// @route   GET /api/posts/:id
-// @desc    Get a single post by ID
-// @access  Public
+/**
+ * GET /api/posts/:id
+ * Get a single post by ID
+ * Public
+ */
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id)
       .populate('author', 'username firstName lastName')
       .populate('comments.user', 'username firstName lastName');
-    
-    if (!post) {
-      return res.status(404).json({
-        message: 'Post not found'
-      });
-    }
-    
-    res.json({ post });
-    
+
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+    res.json(post);
   } catch (error) {
-    console.error('Get post error:', error);
-    res.status(500).json({
-      message: 'Server error while fetching post'
-    });
+    console.error('Get post by id error:', error);
+    res.status(500).json({ message: 'Server error while fetching the post' });
   }
 });
 
-// @route   POST /api/posts
-// @desc    Create a new post
-// @access  Private
+/**
+ * POST /api/posts
+ * Create a new post (text and/or image)
+ * Private
+ */
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { content } = req.body;
-    
-    // Validate content
-    if (!content || content.trim().length === 0) {
-      return res.status(400).json({
-        message: 'Post content is required'
-      });
+    const { content, imageUrl } = req.body;
+
+    // Must have either text or image
+    const hasText = content && content.trim().length > 0;
+    const hasImage = typeof imageUrl === 'string' && imageUrl.trim().length > 0;
+
+    if (!hasText && !hasImage) {
+      return res.status(400).json({ message: 'Post must have text or an image.' });
     }
-    
-    // Create new post
+
     const newPost = new Post({
-      content: content.trim(),
-      author: req.user._id
+      author: req.user._id,
+      content: hasText ? content.trim() : '',
+      imageUrl: hasImage ? imageUrl.trim() : null
     });
-    
-    // Save post to database
+
     await newPost.save();
-    
-    // Populate author information
     await newPost.populate('author', 'username firstName lastName');
-    
+
     res.status(201).json({
       message: 'Post created successfully',
       post: newPost
     });
-    
   } catch (error) {
     console.error('Create post error:', error);
-    res.status(500).json({
-      message: 'Server error while creating post'
-    });
+    res.status(500).json({ message: 'Server error while creating post' });
   }
 });
 
-// @route   PUT /api/posts/:id
-// @desc    Update a post
-// @access  Private (only post author)
+/**
+ * PUT /api/posts/:id
+ * Update a post (text and/or image)
+ * Private (author only)
+ */
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
-    const { content } = req.body;
-    
-    // Find the post
+    const { content, imageUrl } = req.body;
+
     const post = await Post.findById(req.params.id);
-    
-    if (!post) {
-      return res.status(404).json({
-        message: 'Post not found'
-      });
-    }
-    
-    // Check if user is the author
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+
     if (post.author.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        message: 'Not authorized to update this post'
-      });
+      return res.status(403).json({ message: 'Not authorized to update this post' });
     }
-    
-    // Validate content
-    if (!content || content.trim().length === 0) {
-      return res.status(400).json({
-        message: 'Post content is required'
-      });
+
+    // Allow updating either/both fields. If `imageUrl` is provided as null or empty string,
+    // we treat it as removing the image.
+    if (typeof content !== 'undefined') {
+      const trimmed = (content || '').trim();
+      post.content = trimmed;
     }
-    
-    // Update post
-    post.content = content.trim();
+    if (typeof imageUrl !== 'undefined') {
+      const cleaned = (imageUrl && imageUrl.trim()) || null;
+      post.imageUrl = cleaned;
+    }
+
+    // Validate: after updates, must still have text or image
+    const hasText = post.content && post.content.trim().length > 0;
+    const hasImage = !!post.imageUrl;
+    if (!hasText && !hasImage) {
+      return res.status(400).json({ message: 'Post must have text or an image.' });
+    }
+
     await post.save();
-    
-    // Populate author information
     await post.populate('author', 'username firstName lastName');
-    
-    res.json({
-      message: 'Post updated successfully',
-      post
-    });
-    
+
+    res.json({ message: 'Post updated successfully', post });
   } catch (error) {
     console.error('Update post error:', error);
-    res.status(500).json({
-      message: 'Server error while updating post'
-    });
+    res.status(500).json({ message: 'Server error while updating post' });
   }
 });
 
-// @route   DELETE /api/posts/:id
-// @desc    Delete a post
-// @access  Private (only post author)
+/**
+ * DELETE /api/posts/:id
+ * Delete a post
+ * Private (author only)
+ */
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    // Find the post
     const post = await Post.findById(req.params.id);
-    
-    if (!post) {
-      return res.status(404).json({
-        message: 'Post not found'
-      });
-    }
-    
-    // Check if user is the author
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+
     if (post.author.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        message: 'Not authorized to delete this post'
-      });
+      return res.status(403).json({ message: 'Not authorized to delete this post' });
     }
-    
-    // Delete post
+
     await Post.findByIdAndDelete(req.params.id);
-    
-    res.json({
-      message: 'Post deleted successfully'
-    });
-    
+    res.json({ message: 'Post deleted successfully' });
   } catch (error) {
     console.error('Delete post error:', error);
-    res.status(500).json({
-      message: 'Server error while deleting post'
-    });
+    res.status(500).json({ message: 'Server error while deleting post' });
   }
 });
 
-// @route   POST /api/posts/:id/like
-// @desc    Like/unlike a post
-// @access  Private
+/**
+ * POST /api/posts/:id/like
+ * Like/unlike a post
+ * Private
+ */
 router.post('/:id/like', authenticateToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
-    
-    if (!post) {
-      return res.status(404).json({
-        message: 'Post not found'
-      });
-    }
-    
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+
     const userId = req.user._id;
     const isLiked = post.isLikedBy(userId);
-    
+
     if (isLiked) {
-      // Unlike the post
       await post.removeLike(userId);
-      res.json({
-        message: 'Post unliked successfully',
-        liked: false
-      });
+      return res.json({ message: 'Post unliked successfully', liked: false });
     } else {
-      // Like the post
       await post.addLike(userId);
-      res.json({
-        message: 'Post liked successfully',
-        liked: true
-      });
+      return res.json({ message: 'Post liked successfully', liked: true });
     }
-    
   } catch (error) {
     console.error('Like post error:', error);
-    res.status(500).json({
-      message: 'Server error while liking post'
-    });
+    res.status(500).json({ message: 'Server error while liking post' });
   }
 });
 
-// @route   POST /api/posts/:id/comment
-// @desc    Add a comment to a post
-// @access  Private
+/**
+ * POST /api/posts/:id/comment
+ * Add a comment
+ * Private
+ */
 router.post('/:id/comment', authenticateToken, async (req, res) => {
   try {
     const { content } = req.body;
-    
-    // Validate content
     if (!content || content.trim().length === 0) {
-      return res.status(400).json({
-        message: 'Comment content is required'
-      });
+      return res.status(400).json({ message: 'Comment content is required' });
     }
-    
+
     const post = await Post.findById(req.params.id);
-    
-    if (!post) {
-      return res.status(404).json({
-        message: 'Post not found'
-      });
-    }
-    
-    // Add comment
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+
     await post.addComment(req.user._id, content.trim());
-    
-    // Populate the updated post with author and comment user info
     await post.populate('author', 'username firstName lastName');
     await post.populate('comments.user', 'username firstName lastName');
-    
-    res.status(201).json({
-      message: 'Comment added successfully',
-      post
-    });
-    
+
+    res.status(201).json({ message: 'Comment added successfully', post });
   } catch (error) {
     console.error('Add comment error:', error);
-    res.status(500).json({
-      message: 'Server error while adding comment'
-    });
+    res.status(500).json({ message: 'Server error while adding comment' });
   }
 });
 
 module.exports = router;
-
